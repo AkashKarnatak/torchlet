@@ -87,6 +87,49 @@ Tensor *tensor_randn(size_t *shape, size_t ndims) {
   return t;
 }
 
+float tensor_mean(Tensor *t) {
+  size_t numel;
+  float sum;
+
+  numel = tensor_numel(t);
+  sum = 0.0f;
+  for (size_t i = 0; i < numel; ++i) {
+    sum += t->data[i];
+  }
+
+  return sum / numel;
+}
+
+float tensor_std(Tensor *t) {
+  size_t numel;
+  float sum, sum2;
+
+  assert(t->ndims == 2);
+
+  numel = tensor_numel(t);
+  sum = 0.0f, sum2 = 0.0f;
+  for (size_t i = 0; i < numel; ++i) {
+    sum += t->data[i];
+    sum2 += t->data[i] * t->data[i];
+  }
+
+  return sqrt((sum2 / numel) - (sum / numel) * (sum / numel));
+}
+
+Tensor *tensor_relu(Tensor *t) {
+  size_t numel;
+  Tensor *out;
+
+  numel = tensor_numel(t);
+  out = tensor_like(t);
+
+  for (size_t i = 0; i < numel; ++i) {
+    out->data[i] = t->data[i] > 0 ? t->data[i] : 0;
+  }
+
+  return out;
+}
+
 void tensor_free(Tensor *t) {
   free(t->shape);
   free(t->stride);

@@ -24,6 +24,12 @@ Tensor *tensor_like(Tensor *t);
 
 void kaiming_init(Tensor *t, float gain);
 
+float tensor_mean(Tensor *t);
+
+float tensor_std(Tensor *t);
+
+Tensor *tensor_relu(Tensor *t);
+
 void tensor_free(Tensor *t);
 
 void tensor_reshape(Tensor *t, size_t *shape, size_t ndims);
