@@ -7,6 +7,7 @@ int main() {
   Tensor *d_out1, *d_out2, *d_out3, *d_out4, *d_out5;
   Tensor *d_w1, *d_w2, *d_b1, *d_b2;
   float loss;
+  size_t numel;
 
   data = tensor_randn((size_t[]){32, 784}, 2);
   y = tensor_randint((size_t[]){32}, 1, 0, 10);
@@ -44,7 +45,22 @@ int main() {
   tensor_transpose(w2);
   d_out3 = tensor_matmul(d_out4, w2);
 
-  tensor_print(d_out3);
+  d_out2 = tensor_copy(d_out3);
+  numel = tensor_numel(out3);
+  for (size_t i = 0; i < numel; ++i) {
+    if (out3->data[i] <= 0) {
+      d_out2->data[i] = 0;
+    }
+  }
+
+  d_out1 = tensor_copy(d_out2);
+
+  d_b1 = tensor_copy(d_out2);
+
+  tensor_transpose(data);
+  d_w1 = tensor_matmul(data, d_out1);
+
+  tensor_print(d_w1);
 
   tensor_free(data);
   tensor_free(y);
@@ -61,12 +77,12 @@ int main() {
   tensor_free(d_out5);
   tensor_free(d_out4);
   tensor_free(d_out3);
-  /* tensor_free(d_out2); */
-  /* tensor_free(d_out1); */
+  tensor_free(d_out2);
+  tensor_free(d_out1);
   tensor_free(d_w2);
   tensor_free(d_b2);
-  /* tensor_free(d_w1); */
-  /* tensor_free(d_b1); */
+  tensor_free(d_w1);
+  tensor_free(d_b1);
 
   return 0;
 }
