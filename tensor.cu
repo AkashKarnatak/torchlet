@@ -36,6 +36,61 @@ __global__ void matmul_kernel(float *a_data, float *b_data, float *c_data,
   c_data[batch * N * M + row * M + col] = sum;
 }
 
+__global__ void add_scaler_kernel(float *data, float x, size_t N) {
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i >= N)
+    return;
+  data[i] += x;
+}
+
+__global__ void sub_scaler_kernel(float *data, float x, size_t N) {
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i >= N)
+    return;
+  data[i] -= x;
+}
+
+__global__ void mul_scaler_kernel(float *data, float x, size_t N) {
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i >= N)
+    return;
+  data[i] *= x;
+}
+
+__global__ void div_scaler_kernel(float *data, float x, size_t N) {
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i >= N)
+    return;
+  data[i] /= x;
+}
+
+__global__ void cross_entropy_kernel(float *pred_data, float *target_data,
+                                     float *out_data, size_t N, size_t M,
+                                     size_t pred_stride_1,
+                                     size_t pred_stride_0) {
+  size_t i = blockDim.x * blockIdx.x + threadIdx.x;
+  if (i >= N)
+    return;
+
+  float sum, maximum;
+
+  maximum = -INFINITY;
+  for (size_t k = 0; k < M; ++k) {
+    if (pred_data[i * pred_stride_1 + k * pred_stride_0] > maximum)
+      maximum = pred_data[i * pred_stride_1 + k * pred_stride_0];
+  }
+
+  sum = 0.0f;
+  for (size_t k = 0; k < M; ++k) {
+    sum += expf(pred_data[i * pred_stride_1 + k * pred_stride_0] - maximum);
+  }
+
+  out_data[i] = expf(pred_data[i * pred_stride_1 +
+                               (int32_t)target_data[i] * pred_stride_0] -
+                     maximum) /
+                sum;
+}
+
 size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
 
 Tensor *_tensor_empty_gpu(size_t *shape, size_t ndims) {
@@ -89,6 +144,20 @@ Tensor *tensor_to_gpu(Tensor *in) {
 
   cudaMemcpy(out->data, in->data, numel * sizeof(float),
              cudaMemcpyHostToDevice);
+
+  return out;
+}
+
+Tensor *tensor_copy_gpu(Tensor *in) {
+  Tensor *out;
+  size_t numel;
+
+  assert(in->on_gpu);
+
+  out = tensor_empty_like_gpu(in);
+  numel = tensor_numel(in);
+  cudaMemcpy(out->data, in->data, numel * sizeof(float),
+             cudaMemcpyDeviceToDevice);
 
   return out;
 }
@@ -194,4 +263,65 @@ Tensor *tensor_matmul_gpu(Tensor *a, Tensor *b) {
       b->stride[0]);
 
   return c;
+}
+
+void tensor_add_scaler_gpu(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  size_t numThreads = 1024;
+  size_t numBlocks = cdiv(numel, numThreads);
+  add_scaler_kernel<<<numBlocks, numThreads>>>(t->data, x, numel);
+}
+
+void tensor_sub_scaler_gpu(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  size_t numThreads = 1024;
+  size_t numBlocks = cdiv(numel, numThreads);
+  sub_scaler_kernel<<<numBlocks, numThreads>>>(t->data, x, numel);
+}
+
+void tensor_mul_scaler_gpu(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  size_t numThreads = 1024;
+  size_t numBlocks = cdiv(numel, numThreads);
+  mul_scaler_kernel<<<numBlocks, numThreads>>>(t->data, x, numel);
+}
+
+void tensor_div_scaler_gpu(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  size_t numThreads = 1024;
+  size_t numBlocks = cdiv(numel, numThreads);
+  div_scaler_kernel<<<numBlocks, numThreads>>>(t->data, x, numel);
+}
+
+Tensor *tensor_cross_entropy_gpu(Tensor *pred, Tensor *target) {
+  Tensor *out;
+
+  assert(pred->ndims == 2 && target->ndims == 1);
+  assert(pred->shape[1] == target->shape[0]);
+
+  for (size_t i = 0; i < target->shape[0]; ++i) {
+    assert((int32_t)target->data[i] >= 0 &&
+           (int32_t)target->data[i] < pred->shape[0]);
+  }
+
+  assert(pred->on_gpu && target->on_gpu);
+
+  out = tensor_empty_like_gpu(target);
+
+  size_t numThreads = 1024;
+  size_t numBlocks = cdiv(out->shape[0], numThreads);
+
+  cross_entropy_kernel<<<numBlocks, numThreads>>>(
+      pred->data, target->data, out->data, pred->shape[1], pred->shape[0],
+      pred->stride[1], pred->stride[0]);
+
+  return out;
 }

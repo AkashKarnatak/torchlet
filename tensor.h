@@ -94,4 +94,12 @@ Tensor *tensor_matadd_gpu(Tensor *a, Tensor *b);
 
 Tensor *tensor_matmul_gpu(Tensor *a, Tensor *b);
 
+void tensor_add_scaler_gpu(Tensor *t, float x);
+
+void tensor_sub_scaler_gpu(Tensor *t, float x);
+
+void tensor_mul_scaler_gpu(Tensor *t, float x);
+
+void tensor_div_scaler_gpu(Tensor *t, float x);
+
 #endif
