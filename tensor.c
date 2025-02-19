@@ -1,5 +1,17 @@
 #include "tensor.h"
 
+float randn() {
+  float u1, u2;
+
+  u1 = (float)rand() / RAND_MAX;
+  u2 = (float)rand() / RAND_MAX;
+
+  // box-muller transformation
+  float z = sqrt(-2.0 * log(u1)) * cos(2.0 * M_PI * u2);
+
+  return z;
+}
+
 // NOTE: contrary to the usual convention lower index of tensor shape
 // corresponds to the lower dimension
 Tensor *_tensor_init(size_t *shape, size_t ndims) {
@@ -40,6 +52,40 @@ Tensor *tensor_init(size_t *shape, size_t ndims) {
 }
 
 Tensor *tensor_like(Tensor *t) { return _tensor_init(t->shape, t->ndims); }
+
+Tensor *tensor_zeros(size_t *shape, size_t ndims) {
+  Tensor *t;
+
+  t = tensor_init(shape, ndims);
+  memset(t->data, 0, tensor_numel(t) * sizeof(float));
+
+  return t;
+}
+
+void kaiming_init(Tensor *t, float gain) {
+  size_t numel;
+
+  assert(t->ndims == 2);
+
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] = randn() * gain / sqrt(t->shape[1]);
+  }
+}
+
+Tensor *tensor_randn(size_t *shape, size_t ndims) {
+  size_t numel;
+  Tensor *t;
+
+  t = tensor_init(shape, ndims);
+
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] = randn();
+  }
+
+  return t;
+}
 
 void tensor_free(Tensor *t) {
   free(t->shape);
@@ -136,6 +182,28 @@ size_t tensor_numel(Tensor *t) {
   return numel;
 }
 
+Tensor *tensor_add(Tensor *a, Tensor *b) {
+  size_t ndims, numel;
+  Tensor *c;
+
+  assert(a->ndims == b->ndims);
+
+  ndims = a->ndims;
+  numel = tensor_numel(a);
+
+  for (size_t i = 0; i < ndims; ++i) {
+    assert(a->shape[i] == b->shape[i]);
+  }
+
+  c = tensor_like(a);
+
+  for (size_t i = 0; i < numel; ++i) {
+    c->data[i] = a->data[i] + b->data[i];
+  }
+
+  return c;
+}
+
 Tensor *tensor_matmul(Tensor *a, Tensor *b) {
   assert(a->ndims > 1 && b->ndims > 1);
 
@@ -179,40 +247,4 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b) {
   }
 
   return c;
-}
-
-int main() {
-  size_t a_shape[] = {5, 7};
-  size_t b_shape[] = {7, 3};
-
-  Tensor *a = tensor_init(a_shape, sizeof(a_shape) / sizeof(size_t));
-  Tensor *b = tensor_init(b_shape, sizeof(b_shape) / sizeof(size_t));
-
-  size_t a_numel = tensor_numel(a);
-  size_t b_numel = tensor_numel(b);
-
-  for (size_t i = 0; i < a_numel; ++i) {
-    a->data[i] = (float)rand() / RAND_MAX;
-  }
-
-  for (size_t i = 0; i < b_numel; ++i) {
-    b->data[i] = (float)rand() / RAND_MAX;
-  }
-
-  Tensor *c = tensor_matmul(a, b);
-
-  tensor_print(a);
-  printf("--------\n");
-  tensor_print(b);
-  printf("--------\n");
-  tensor_print(c);
-  printf("--------\n");
-
-  tensor_debug(a);
-  tensor_debug(b);
-  tensor_debug(c);
-
-  tensor_free(a);
-  tensor_free(b);
-  tensor_free(c);
 }

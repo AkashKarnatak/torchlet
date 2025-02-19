@@ -1,2 +1,2 @@
 all:
-	gcc -fsanitize=address tensor.c -o tensor.out
+	gcc -fsanitize=address -lm tensor.c nn.c -o nn.out

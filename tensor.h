@@ -2,12 +2,12 @@
 #define TENSOR_H
 
 #include <assert.h>
+#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 typedef struct {
   size_t ndims;
@@ -16,9 +16,13 @@ typedef struct {
   float *data;
 } Tensor;
 
-Tensor *tensor_init(size_t *shape, size_t ndims);
+Tensor *tensor_zeros(size_t *shape, size_t ndims);
+
+Tensor *tensor_randn(size_t *shape, size_t ndims);
 
 Tensor *tensor_like(Tensor *t);
+
+void kaiming_init(Tensor *t, float gain);
 
 void tensor_free(Tensor *t);
 
@@ -29,6 +33,8 @@ void tensor_print(Tensor *t);
 void tensor_debug(Tensor *t);
 
 size_t tensor_numel(Tensor *t);
+
+Tensor *tensor_add(Tensor *a, Tensor *b);
 
 Tensor *tensor_matmul(Tensor *a, Tensor *b);
 
