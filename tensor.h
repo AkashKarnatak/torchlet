@@ -82,8 +82,14 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b);
 
 Tensor *tensor_to_gpu(Tensor *in);
 
+Tensor *tensor_to_cpu(Tensor *in);
+
+void tensor_free_gpu(Tensor *t);
+
 Tensor *tensor_relu_gpu(Tensor *in);
 
 Tensor *tensor_matadd_gpu(Tensor *a, Tensor *b);
+
+Tensor *tensor_matmul_gpu(Tensor *a, Tensor *b);
 
 #endif

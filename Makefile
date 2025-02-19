@@ -1,2 +1,2 @@
 all:
-	nvcc -arch=sm_86 -lm tensor.c tensor.cu nn.cu -o nn.out
+	nvcc -arch=sm_86 -lm tensor.c tensor.cu main.cu -o main.out

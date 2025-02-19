@@ -93,6 +93,28 @@ Tensor *tensor_to_gpu(Tensor *in) {
   return out;
 }
 
+Tensor *tensor_to_cpu(Tensor *in) {
+  Tensor *out;
+  size_t numel;
+
+  assert(in->on_gpu);
+
+  out = tensor_empty_like(in);
+  numel = tensor_numel(in);
+
+  cudaMemcpy(out->data, in->data, numel * sizeof(float),
+             cudaMemcpyDeviceToHost);
+
+  return out;
+}
+
+void tensor_free_gpu(Tensor *t) {
+  free(t->shape);
+  free(t->stride);
+  cudaFree(t->data);
+  free(t);
+}
+
 Tensor *tensor_relu_gpu(Tensor *in) {
   size_t numel;
   Tensor *out;
@@ -157,11 +179,10 @@ Tensor *tensor_matmul_gpu(Tensor *a, Tensor *b) {
     c_shape[i] = a->shape[i];
   }
 
-  Tensor *c = tensor_empty_gpu(c_shape, ndims);
+  Tensor *c = _tensor_empty_gpu(c_shape, ndims);
 
   size_t a_stride_2 = ndims > 2 ? a->stride[2] : 1;
   size_t b_stride_2 = ndims > 2 ? b->stride[2] : 1;
-  size_t c_stride_2 = ndims > 2 ? c->stride[2] : 1;
 
   dim3 numThreads(32, 32, 1);
   dim3 numBlocks(cdiv(c_shape[0], numThreads.x), cdiv(c_shape[1], numThreads.y),
