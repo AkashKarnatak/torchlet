@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -14,7 +15,12 @@ typedef struct {
   size_t *shape;
   size_t *stride;
   float *data;
+  bool on_gpu;
 } Tensor;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 Tensor *tensor_zeros(size_t *shape, size_t ndims);
 
@@ -69,5 +75,15 @@ void tensor_div_scaler(Tensor *t, float x);
 Tensor *tensor_matadd(Tensor *a, Tensor *b);
 
 Tensor *tensor_matmul(Tensor *a, Tensor *b);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+Tensor *tensor_to_gpu(Tensor *in);
+
+Tensor *tensor_relu_gpu(Tensor *in);
+
+Tensor *tensor_matadd_gpu(Tensor *a, Tensor *b);
 
 #endif

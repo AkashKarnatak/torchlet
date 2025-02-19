@@ -27,6 +27,7 @@ Tensor *_tensor_empty(size_t *shape, size_t ndims) {
   assert(t != NULL);
 
   t->ndims = ndims;
+  t->on_gpu = false;
 
   t->shape = (size_t *)malloc(ndims * sizeof(size_t));
   assert(t->shape != NULL);

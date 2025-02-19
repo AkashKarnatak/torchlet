@@ -1,2 +1,2 @@
 all:
-	gcc -fsanitize=address -lm tensor.c nn.c -o nn.out
+	nvcc -arch=sm_86 -lm tensor.c tensor.cu nn.c -o nn.out
