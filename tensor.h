@@ -24,6 +24,8 @@ Tensor *tensor_randint(size_t *shape, size_t ndims, int32_t low, int32_t high);
 
 Tensor *tensor_like(Tensor *t);
 
+Tensor *tensor_copy(Tensor *t);
+
 void kaiming_init(Tensor *t, float gain);
 
 float tensor_sum(Tensor *t);

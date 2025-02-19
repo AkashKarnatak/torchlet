@@ -59,6 +59,17 @@ Tensor *tensor_init(size_t *shape, size_t ndims) {
 
 Tensor *tensor_like(Tensor *t) { return _tensor_init(t->shape, t->ndims); }
 
+Tensor *tensor_copy(Tensor *t) {
+  Tensor *out;
+  size_t numel;
+
+  out = tensor_like(t);
+  numel = tensor_numel(t);
+  memcpy(out->data, t->data, numel * sizeof(float));
+
+  return out;
+}
+
 Tensor *tensor_zeros(size_t *shape, size_t ndims) {
   Tensor *t;
 
