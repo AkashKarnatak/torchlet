@@ -363,20 +363,22 @@ Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target) {
 
     maximum = -INFINITY;
     for (size_t col = 0; col < pred->shape[0]; ++col) {
-      if (pred->data[row * pred->stride[1] + col] > maximum) {
-        maximum = pred->data[row * pred->stride[1] + col];
+      if (pred->data[row * pred->stride[1] + col * pred->stride[0]] > maximum) {
+        maximum = pred->data[row * pred->stride[1] + col * pred->stride[0]];
       }
     }
 
     sum = 0.0f;
     for (size_t col = 0; col < pred->shape[0]; ++col) {
-      sum += expf(pred->data[row * pred->stride[1] + col] - maximum);
+      sum += expf(pred->data[row * pred->stride[1] + col * pred->stride[0]] -
+                  maximum);
     }
 
-    out->data[row] = -log(
-        expf(pred->data[row * pred->stride[1] + (int32_t)target->data[row]] -
-             maximum) /
-        sum);
+    out->data[row] =
+        -log(expf(pred->data[row * pred->stride[1] +
+                             (int32_t)target->data[row] * pred->stride[0]] -
+                  maximum) /
+             sum);
   }
 
   return out;
@@ -447,8 +449,8 @@ void tensor_print(Tensor *t) {
     for (size_t row = 0; row < t->shape[1]; ++row) {
       printf(" [\n ");
       for (size_t col = 0; col < t->shape[0]; ++col) {
-        printf(" %.5f,",
-               t->data[batch * t_stride_2 + row * t->stride[1] + col]);
+        printf(" %f,", t->data[batch * t_stride_2 + row * t->stride[1] +
+                               col * t->stride[0]]);
       }
       printf("\n ],\n");
     }
@@ -486,7 +488,43 @@ size_t tensor_numel(Tensor *t) {
   return numel;
 }
 
-Tensor *tensor_add(Tensor *a, Tensor *b) {
+void tensor_add_scaler(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] += x;
+  }
+}
+
+void tensor_sub_scaler(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] -= x;
+  }
+}
+
+void tensor_mul_scaler(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] *= x;
+  }
+}
+
+void tensor_div_scaler(Tensor *t, float x) {
+  size_t numel;
+  Tensor *out;
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] /= x;
+  }
+}
+
+Tensor *tensor_matadd(Tensor *a, Tensor *b) {
   size_t ndims, numel;
   Tensor *c;
 
@@ -542,10 +580,13 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b) {
       for (size_t col = 0; col < c->shape[0]; ++col) {
         float sum = 0.0f;
         for (size_t k = 0; k < a->shape[0]; ++k) {
-          sum += a->data[batch * a_stride_2 + row * a->stride[1] + k] *
-                 b->data[batch * b_stride_2 + k * b->stride[1] + col];
+          sum += a->data[batch * a_stride_2 + row * a->stride[1] +
+                         k * a->stride[0]] *
+                 b->data[batch * b_stride_2 + k * b->stride[1] +
+                         col * b->stride[0]];
         }
-        c->data[batch * c_stride_2 + row * c->stride[1] + col] = sum;
+        c->data[batch * c_stride_2 + row * c->stride[1] + col * c->stride[0]] =
+            sum;
       }
     }
   }

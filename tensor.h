@@ -54,7 +54,15 @@ void tensor_debug(Tensor *t);
 
 size_t tensor_numel(Tensor *t);
 
-Tensor *tensor_add(Tensor *a, Tensor *b);
+void tensor_add_scaler(Tensor *t, float x);
+
+void tensor_sub_scaler(Tensor *t, float x);
+
+void tensor_mul_scaler(Tensor *t, float x);
+
+void tensor_div_scaler(Tensor *t, float x);
+
+Tensor *tensor_matadd(Tensor *a, Tensor *b);
 
 Tensor *tensor_matmul(Tensor *a, Tensor *b);
 
