@@ -258,6 +258,50 @@ Tensor *tensor_relu(Tensor *t) {
   return out;
 }
 
+Tensor *tensor_softmax(Tensor *t, int32_t dim) {
+  size_t outer, inner, outer_stride, inner_stride;
+  Tensor *out;
+
+  if (dim == -1) {
+    dim = 0;
+  } else {
+    dim = t->ndims - 1 - dim;
+  }
+
+  inner = 1;
+  for (size_t i = 0; i < dim; ++i) {
+    inner *= t->shape[i];
+  }
+
+  outer = 1;
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    outer *= t->shape[i];
+  }
+
+  inner_stride = dim - 1 >= 0 ? 1 : 0;
+  outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
+
+  out = tensor_like(t);
+
+  for (size_t i = 0; i < outer; ++i) {
+    for (size_t j = 0; j < inner; ++j) {
+      float sum = 0.0f;
+      for (size_t k = 0; k < t->shape[dim]; ++k) {
+        sum += expf(
+            t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride]);
+      }
+      for (size_t k = 0; k < t->shape[dim]; ++k) {
+        out->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] =
+            expf(t->data[i * outer_stride + k * t->stride[dim] +
+                         j * inner_stride]) /
+            sum;
+      }
+    }
+  }
+
+  return out;
+}
+
 void tensor_free(Tensor *t) {
   free(t->shape);
   free(t->stride);

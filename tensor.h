@@ -36,6 +36,8 @@ float tensor_std(Tensor *t);
 
 Tensor *tensor_relu(Tensor *t);
 
+Tensor *tensor_softmax(Tensor *t, int32_t dim);
+
 void tensor_free(Tensor *t);
 
 void tensor_reshape(Tensor *t, size_t *shape, size_t ndims);
