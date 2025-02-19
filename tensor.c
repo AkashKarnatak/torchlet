@@ -19,7 +19,7 @@ int32_t unif(int32_t low, int32_t high) {
 
 // NOTE: contrary to the usual convention lower index of tensor shape
 // corresponds to the lower dimension
-Tensor *_tensor_init(size_t *shape, size_t ndims) {
+Tensor *_tensor_empty(size_t *shape, size_t ndims) {
   Tensor *t;
   size_t numel;
 
@@ -48,22 +48,22 @@ Tensor *_tensor_init(size_t *shape, size_t ndims) {
   return t;
 }
 
-Tensor *tensor_init(size_t *shape, size_t ndims) {
+Tensor *tensor_empty(size_t *shape, size_t ndims) {
   size_t shape_r[ndims];
   for (int32_t i = 0; i < (ndims + 1) / 2; ++i) {
     shape_r[i] = shape[ndims - 1 - i];
     shape_r[ndims - 1 - i] = shape[i];
   }
-  return _tensor_init(shape_r, ndims);
+  return _tensor_empty(shape_r, ndims);
 }
 
-Tensor *tensor_like(Tensor *t) { return _tensor_init(t->shape, t->ndims); }
+Tensor *tensor_empty_like(Tensor *t) { return _tensor_empty(t->shape, t->ndims); }
 
 Tensor *tensor_copy(Tensor *t) {
   Tensor *out;
   size_t numel;
 
-  out = tensor_like(t);
+  out = tensor_empty_like(t);
   numel = tensor_numel(t);
   memcpy(out->data, t->data, numel * sizeof(float));
 
@@ -73,7 +73,7 @@ Tensor *tensor_copy(Tensor *t) {
 Tensor *tensor_zeros(size_t *shape, size_t ndims) {
   Tensor *t;
 
-  t = tensor_init(shape, ndims);
+  t = tensor_empty(shape, ndims);
   memset(t->data, 0, tensor_numel(t) * sizeof(float));
 
   return t;
@@ -94,7 +94,7 @@ Tensor *tensor_randn(size_t *shape, size_t ndims) {
   size_t numel;
   Tensor *t;
 
-  t = tensor_init(shape, ndims);
+  t = tensor_empty(shape, ndims);
 
   numel = tensor_numel(t);
   for (size_t i = 0; i < numel; ++i) {
@@ -108,7 +108,7 @@ Tensor *tensor_randint(size_t *shape, size_t ndims, int32_t low, int32_t high) {
   size_t numel;
   Tensor *t;
 
-  t = tensor_init(shape, ndims);
+  t = tensor_empty(shape, ndims);
 
   numel = tensor_numel(t);
   for (size_t i = 0; i < numel; ++i) {
@@ -139,7 +139,7 @@ Tensor *tensor_sum_at(Tensor *t, int32_t dim) {
   assert(dim == -1 || (dim >= 0 && dim < (int32_t)t->ndims));
 
   if (t->ndims == 1) {
-    out = _tensor_init((size_t[]){1}, 1);
+    out = _tensor_empty((size_t[]){1}, 1);
     out->data[0] = tensor_sum(t);
     return out;
   }
@@ -158,7 +158,7 @@ Tensor *tensor_sum_at(Tensor *t, int32_t dim) {
   for (size_t i = dim + 1; i < t->ndims; ++i) {
     out_shape[i - 1] = t->shape[i];
   }
-  out = _tensor_init(out_shape, out_dims);
+  out = _tensor_empty(out_shape, out_dims);
 
   inner = 1;
   for (size_t i = 0; i < dim; ++i) {
@@ -209,7 +209,7 @@ Tensor *tensor_mean_at(Tensor *t, int32_t dim) {
   assert(dim == -1 || (dim >= 0 && dim < (int32_t)t->ndims));
 
   if (t->ndims == 1) {
-    out = _tensor_init((size_t[]){1}, 1);
+    out = _tensor_empty((size_t[]){1}, 1);
     out->data[0] = tensor_mean(t);
     return out;
   }
@@ -228,7 +228,7 @@ Tensor *tensor_mean_at(Tensor *t, int32_t dim) {
   for (size_t i = dim + 1; i < t->ndims; ++i) {
     out_shape[i - 1] = t->shape[i];
   }
-  out = _tensor_init(out_shape, out_dims);
+  out = _tensor_empty(out_shape, out_dims);
 
   inner = 1;
   for (size_t i = 0; i < dim; ++i) {
@@ -279,7 +279,7 @@ Tensor *tensor_relu(Tensor *t) {
   Tensor *out;
 
   numel = tensor_numel(t);
-  out = tensor_like(t);
+  out = tensor_empty_like(t);
 
   for (size_t i = 0; i < numel; ++i) {
     out->data[i] = t->data[i] > 0 ? t->data[i] : 0;
@@ -311,7 +311,7 @@ Tensor *tensor_softmax(Tensor *t, int32_t dim) {
   inner_stride = dim - 1 >= 0 ? 1 : 0;
   outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
 
-  out = tensor_like(t);
+  out = tensor_empty_like(t);
 
   for (size_t i = 0; i < outer; ++i) {
     for (size_t j = 0; j < inner; ++j) {
@@ -356,7 +356,7 @@ Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target) {
            (int32_t)target->data[i] < pred->shape[0]);
   }
 
-  out = tensor_like(target);
+  out = tensor_empty_like(target);
 
   for (size_t row = 0; row < pred->shape[1]; ++row) {
     float sum, maximum;
@@ -551,7 +551,7 @@ Tensor *tensor_matadd(Tensor *a, Tensor *b) {
     assert(a->shape[i] == b->shape[i]);
   }
 
-  c = tensor_like(a);
+  c = tensor_empty_like(a);
 
   for (size_t i = 0; i < numel; ++i) {
     c->data[i] = a->data[i] + b->data[i];
@@ -583,7 +583,7 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b) {
     c_shape[i] = a->shape[i];
   }
 
-  Tensor *c = _tensor_init(c_shape, ndims);
+  Tensor *c = _tensor_empty(c_shape, ndims);
 
   size_t a_stride_2 = ndims > 2 ? a->stride[2] : 1;
   size_t b_stride_2 = ndims > 2 ? b->stride[2] : 1;
