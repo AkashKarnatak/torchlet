@@ -48,6 +48,8 @@ void tensor_free(Tensor *t);
 
 void tensor_reshape(Tensor *t, size_t *shape, size_t ndims);
 
+void tensor_transpose(Tensor *t);
+
 void tensor_print(Tensor *t);
 
 void tensor_debug(Tensor *t);

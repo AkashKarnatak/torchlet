@@ -425,6 +425,20 @@ void tensor_reshape(Tensor *t, size_t *shape, size_t ndims) {
   return _tensor_reshape(t, shape_r, ndims);
 }
 
+void tensor_transpose(Tensor *t) {
+  for (int32_t i = 0; i < (t->ndims + 1) / 2; ++i) {
+    size_t tmp;
+
+    tmp = t->shape[i];
+    t->shape[i] = t->shape[t->ndims - 1 - i];
+    t->shape[t->ndims - 1 - i] = tmp;
+
+    tmp = t->stride[i];
+    t->stride[i] = t->stride[t->ndims - 1 - i];
+    t->stride[t->ndims - 1 - i] = tmp;
+  }
+}
+
 void tensor_print(Tensor *t) {
   size_t batch_size;
 
