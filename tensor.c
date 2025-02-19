@@ -31,6 +31,7 @@ Tensor *_tensor_init(size_t *shape, size_t ndims) {
 
   numel = 1;
   for (size_t i = 0; i < ndims; ++i) {
+    assert(shape[i] != 0);
     t->shape[i] = shape[i];
     t->stride[i] = numel;
     numel *= shape[i];
