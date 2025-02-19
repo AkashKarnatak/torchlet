@@ -340,6 +340,11 @@ Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target) {
   assert(pred->ndims == 2 && target->ndims == 1);
   assert(pred->shape[1] == target->shape[0]);
 
+  for (size_t i = 0; i < target->shape[0]; ++i) {
+    assert((int32_t)target->data[i] >= 0 &&
+           (int32_t)target->data[i] < pred->shape[0]);
+  }
+
   out = tensor_like(target);
 
   for (size_t row = 0; row < pred->shape[1]; ++row) {
@@ -357,8 +362,8 @@ Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target) {
       sum += expf(pred->data[row * pred->stride[1] + col] - maximum);
     }
 
-    out->data[row] =
-        -log(expf(pred->data[row * pred->stride[1] + (int32_t)target->data[row]] -
+    out->data[row] = -log(
+        expf(pred->data[row * pred->stride[1] + (int32_t)target->data[row]] -
              maximum) /
         sum);
   }
