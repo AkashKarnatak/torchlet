@@ -24,7 +24,13 @@ Tensor *tensor_like(Tensor *t);
 
 void kaiming_init(Tensor *t, float gain);
 
+float tensor_sum(Tensor *t);
+
+Tensor *tensor_sum_at(Tensor *t, int32_t dim);
+
 float tensor_mean(Tensor *t);
+
+Tensor *tensor_mean_at(Tensor *t, int32_t dim);
 
 float tensor_std(Tensor *t);
 

@@ -88,6 +88,76 @@ Tensor *tensor_randn(size_t *shape, size_t ndims) {
   return t;
 }
 
+float tensor_sum(Tensor *t) {
+  size_t numel;
+  float sum;
+
+  numel = tensor_numel(t);
+  sum = 0.0f;
+  for (size_t i = 0; i < numel; ++i) {
+    sum += t->data[i];
+  }
+
+  return sum;
+}
+
+Tensor *tensor_sum_at(Tensor *t, int32_t dim) {
+  size_t outer, inner, outer_stride, inner_stride;
+  size_t out_dims;
+  Tensor *out;
+
+  assert(dim == -1 || (dim >= 0 && dim < (int32_t)t->ndims));
+
+  if (t->ndims == 1) {
+    out = _tensor_init((size_t[]){1}, 1);
+    out->data[0] = tensor_sum(t);
+    return out;
+  }
+
+  if (dim == -1) {
+    dim = 0;
+  } else {
+    dim = t->ndims - 1 - dim;
+  }
+
+  out_dims = t->ndims - 1;
+  size_t out_shape[out_dims];
+  for (size_t i = 0; i < dim; ++i) {
+    out_shape[i] = t->shape[i];
+  }
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    out_shape[i - 1] = t->shape[i];
+  }
+  out = _tensor_init(out_shape, out_dims);
+
+  inner = 1;
+  for (size_t i = 0; i < dim; ++i) {
+    inner *= t->shape[i];
+  }
+
+  outer = 1;
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    outer *= t->shape[i];
+  }
+
+  inner_stride = dim - 1 >= 0 ? 1 : 0;
+  outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
+
+  size_t idx = 0;
+  for (size_t i = 0; i < outer; ++i) {
+    for (size_t j = 0; j < inner; ++j) {
+      float sum = 0.0f;
+      for (size_t k = 0; k < t->shape[dim]; ++k) {
+        sum +=
+            t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
+      }
+      out->data[idx++] = sum;
+    }
+  }
+
+  return out;
+}
+
 float tensor_mean(Tensor *t) {
   size_t numel;
   float sum;
@@ -99,6 +169,63 @@ float tensor_mean(Tensor *t) {
   }
 
   return sum / numel;
+}
+
+Tensor *tensor_mean_at(Tensor *t, int32_t dim) {
+  size_t outer, inner, outer_stride, inner_stride;
+  size_t out_dims;
+  Tensor *out;
+
+  assert(dim == -1 || (dim >= 0 && dim < (int32_t)t->ndims));
+
+  if (t->ndims == 1) {
+    out = _tensor_init((size_t[]){1}, 1);
+    out->data[0] = tensor_mean(t);
+    return out;
+  }
+
+  if (dim == -1) {
+    dim = 0;
+  } else {
+    dim = t->ndims - 1 - dim;
+  }
+
+  out_dims = t->ndims - 1;
+  size_t out_shape[out_dims];
+  for (size_t i = 0; i < dim; ++i) {
+    out_shape[i] = t->shape[i];
+  }
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    out_shape[i - 1] = t->shape[i];
+  }
+  out = _tensor_init(out_shape, out_dims);
+
+  inner = 1;
+  for (size_t i = 0; i < dim; ++i) {
+    inner *= t->shape[i];
+  }
+
+  outer = 1;
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    outer *= t->shape[i];
+  }
+
+  inner_stride = dim - 1 >= 0 ? 1 : 0;
+  outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
+
+  size_t idx = 0;
+  for (size_t i = 0; i < outer; ++i) {
+    for (size_t j = 0; j < inner; ++j) {
+      float sum = 0.0f;
+      for (size_t k = 0; k < t->shape[dim]; ++k) {
+        sum +=
+            t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
+      }
+      out->data[idx++] = sum / t->shape[dim];
+    }
+  }
+
+  return out;
 }
 
 float tensor_std(Tensor *t) {
