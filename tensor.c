@@ -302,6 +302,15 @@ void tensor_reshape(Tensor *t, size_t *shape, size_t ndims) {
 void tensor_print(Tensor *t) {
   size_t batch_size;
 
+  if (t->ndims == 1) {
+    printf("[\n");
+    for (size_t i = 0; i < t->shape[0]; ++i) {
+      printf(" %f, ", t->data[i]);
+    }
+    printf("\n]\n");
+    return;
+  }
+
   batch_size = 1;
   for (size_t i = 2; i < t->ndims; ++i) {
     batch_size *= t->shape[i];
