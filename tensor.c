@@ -285,15 +285,23 @@ Tensor *tensor_softmax(Tensor *t, int32_t dim) {
 
   for (size_t i = 0; i < outer; ++i) {
     for (size_t j = 0; j < inner; ++j) {
-      float sum = 0.0f;
+      float sum = 0.0f, maximum = -INFINITY;
+      for (size_t k = 0; k < t->shape[dim]; ++k) {
+        if (t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] >
+            maximum)
+          maximum =
+              t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
+      }
       for (size_t k = 0; k < t->shape[dim]; ++k) {
         sum += expf(
-            t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride]);
+            t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] -
+            maximum);
       }
       for (size_t k = 0; k < t->shape[dim]; ++k) {
         out->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] =
             expf(t->data[i * outer_stride + k * t->stride[dim] +
-                         j * inner_stride]) /
+                         j * inner_stride] -
+                 maximum) /
             sum;
       }
     }
