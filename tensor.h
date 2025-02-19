@@ -76,6 +76,8 @@ Tensor *tensor_matadd(Tensor *a, Tensor *b);
 
 Tensor *tensor_matmul(Tensor *a, Tensor *b);
 
+bool tensor_allclose(Tensor *a, Tensor *b, float eps);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

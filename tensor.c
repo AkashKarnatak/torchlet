@@ -58,7 +58,9 @@ Tensor *tensor_empty(size_t *shape, size_t ndims) {
   return _tensor_empty(shape_r, ndims);
 }
 
-Tensor *tensor_empty_like(Tensor *t) { return _tensor_empty(t->shape, t->ndims); }
+Tensor *tensor_empty_like(Tensor *t) {
+  return _tensor_empty(t->shape, t->ndims);
+}
 
 Tensor *tensor_copy(Tensor *t) {
   Tensor *out;
@@ -607,4 +609,24 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b) {
   }
 
   return c;
+}
+
+bool tensor_allclose(Tensor *a, Tensor *b, float eps) {
+  size_t ndims, numel;
+
+  assert(a->ndims == b->ndims);
+
+  ndims = a->ndims;
+  numel = tensor_numel(a);
+
+  for (size_t i = 0; i < ndims; ++i) {
+    assert(a->shape[i] == b->shape[i]);
+  }
+
+  for (size_t i = 0; i < numel; ++i) {
+    if (fabsf(a->data[i] - b->data[i]) > eps)
+      return false;
+  }
+
+  return true;
 }
