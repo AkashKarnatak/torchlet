@@ -20,8 +20,8 @@ Tensor *linear(Tensor *in, size_t in_dims, size_t out_dims, float gain) {
 }
 
 int main() {
-  Tensor *data;
-  Tensor *out1, *out2, *out3, *out4, *out5;
+  Tensor *data, *out1, *out2, *out3, *out4, *out5, *y;
+  float loss;
 
   data = tensor_randn((size_t[]){32, 784}, 2);
 
@@ -29,7 +29,12 @@ int main() {
   out2 = tensor_relu(out1);
   out3 = linear(out2, 512, 10, 1);
   out4 = tensor_softmax(out3, -1);
-  out5 = tensor_sum_at(out4, -1);
+
+  y = tensor_randint((size_t[]){32}, 1, 0, 10);
+
+  out5 = tensor_cross_entropy(out3, y);
+
+  loss = tensor_mean(out5);
 
   printf("mean: %f, std: %f\n", tensor_mean(data), tensor_std(data));
 
@@ -39,9 +44,7 @@ int main() {
 
   printf("mean: %f, std: %f\n", tensor_mean(out3), tensor_std(out3));
 
-  tensor_debug(out4);
-  tensor_print(out4);
-  tensor_print(out5);
+  printf("%f\n", loss);
 
   tensor_free(data);
   tensor_free(out1);
@@ -49,6 +52,7 @@ int main() {
   tensor_free(out3);
   tensor_free(out4);
   tensor_free(out5);
+  tensor_free(y);
 
   return 0;
 }

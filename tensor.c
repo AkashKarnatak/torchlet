@@ -12,6 +12,11 @@ float randn() {
   return z;
 }
 
+int32_t unif(int32_t low, int32_t high) {
+  int32_t diff = high - low;
+  return low + rand() % diff;
+}
+
 // NOTE: contrary to the usual convention lower index of tensor shape
 // corresponds to the lower dimension
 Tensor *_tensor_init(size_t *shape, size_t ndims) {
@@ -83,6 +88,20 @@ Tensor *tensor_randn(size_t *shape, size_t ndims) {
   numel = tensor_numel(t);
   for (size_t i = 0; i < numel; ++i) {
     t->data[i] = randn();
+  }
+
+  return t;
+}
+
+Tensor *tensor_randint(size_t *shape, size_t ndims, int32_t low, int32_t high) {
+  size_t numel;
+  Tensor *t;
+
+  t = tensor_init(shape, ndims);
+
+  numel = tensor_numel(t);
+  for (size_t i = 0; i < numel; ++i) {
+    t->data[i] = unif(low, high);
   }
 
   return t;
@@ -285,18 +304,23 @@ Tensor *tensor_softmax(Tensor *t, int32_t dim) {
 
   for (size_t i = 0; i < outer; ++i) {
     for (size_t j = 0; j < inner; ++j) {
-      float sum = 0.0f, maximum = -INFINITY;
+      float sum, maximum;
+
+      maximum = -INFINITY;
       for (size_t k = 0; k < t->shape[dim]; ++k) {
         if (t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] >
             maximum)
           maximum =
               t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
       }
+
+      sum = 0.0f;
       for (size_t k = 0; k < t->shape[dim]; ++k) {
         sum += expf(
             t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] -
             maximum);
       }
+
       for (size_t k = 0; k < t->shape[dim]; ++k) {
         out->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] =
             expf(t->data[i * outer_stride + k * t->stride[dim] +
@@ -305,6 +329,38 @@ Tensor *tensor_softmax(Tensor *t, int32_t dim) {
             sum;
       }
     }
+  }
+
+  return out;
+}
+
+Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target) {
+  Tensor *out;
+
+  assert(pred->ndims == 2 && target->ndims == 1);
+  assert(pred->shape[1] == target->shape[0]);
+
+  out = tensor_like(target);
+
+  for (size_t row = 0; row < pred->shape[1]; ++row) {
+    float sum, maximum;
+
+    maximum = -INFINITY;
+    for (size_t col = 0; col < pred->shape[0]; ++col) {
+      if (pred->data[row * pred->stride[1] + col] > maximum) {
+        maximum = pred->data[row * pred->stride[1] + col];
+      }
+    }
+
+    sum = 0.0f;
+    for (size_t col = 0; col < pred->shape[0]; ++col) {
+      sum += expf(pred->data[row * pred->stride[1] + col] - maximum);
+    }
+
+    out->data[row] =
+        -log(expf(pred->data[row * pred->stride[1] + (int32_t)target->data[row]] -
+             maximum) /
+        sum);
   }
 
   return out;

@@ -20,6 +20,8 @@ Tensor *tensor_zeros(size_t *shape, size_t ndims);
 
 Tensor *tensor_randn(size_t *shape, size_t ndims);
 
+Tensor *tensor_randint(size_t *shape, size_t ndims, int32_t low, int32_t high);
+
 Tensor *tensor_like(Tensor *t);
 
 void kaiming_init(Tensor *t, float gain);
@@ -37,6 +39,8 @@ float tensor_std(Tensor *t);
 Tensor *tensor_relu(Tensor *t);
 
 Tensor *tensor_softmax(Tensor *t, int32_t dim);
+
+Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target);
 
 void tensor_free(Tensor *t);
 
