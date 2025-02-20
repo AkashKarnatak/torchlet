@@ -85,10 +85,10 @@ __global__ void cross_entropy_kernel(float *pred_data, float *target_data,
     sum += expf(pred_data[i * pred_stride_1 + k * pred_stride_0] - maximum);
   }
 
-  out_data[i] = expf(pred_data[i * pred_stride_1 +
-                               (int32_t)target_data[i] * pred_stride_0] -
-                     maximum) /
-                sum;
+  out_data[i] = -log(expf(pred_data[i * pred_stride_1 +
+                                    (int32_t)target_data[i] * pred_stride_0] -
+                          maximum) /
+                     sum);
 }
 
 size_t cdiv(size_t a, size_t b) { return (a + b - 1) / b; }
