@@ -549,10 +549,27 @@ Tensor *tensor_matadd(Tensor *a, Tensor *b) {
   size_t ndims, numel;
   Tensor *c;
 
-  assert(a->ndims == b->ndims);
-
   ndims = a->ndims;
   numel = tensor_numel(a);
+
+  if (b->ndims == 1) {
+    size_t batch = numel / a->shape[0];
+
+    assert(a->shape[0] == b->shape[0]);
+
+    c = tensor_empty_like(a);
+
+    for (size_t i = 0; i < batch; ++i) {
+      for (size_t j = 0; j < a->shape[0]; ++j) {
+        c->data[i * c->stride[1] + j * c->stride[0]] =
+            a->data[i * a->stride[1] + j * a->stride[0]] + b->data[j];
+      }
+    }
+
+    return c;
+  }
+
+  assert(a->ndims == b->ndims);
 
   for (size_t i = 0; i < ndims; ++i) {
     assert(a->shape[i] == b->shape[i]);

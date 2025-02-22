@@ -86,9 +86,15 @@ Tensor *tensor_to_gpu(Tensor *in);
 
 Tensor *tensor_to_cpu(Tensor *in);
 
+Tensor *tensor_copy_gpu(Tensor *in);
+
 void tensor_free_gpu(Tensor *t);
 
 Tensor *tensor_relu_gpu(Tensor *in);
+
+void tensor_relu_backward_gpu(Tensor *a, Tensor *b);
+
+Tensor *tensor_sum_at_gpu(Tensor *t, int32_t dim);
 
 Tensor *tensor_matadd_gpu(Tensor *a, Tensor *b);
 
@@ -101,5 +107,11 @@ void tensor_sub_scaler_gpu(Tensor *t, float x);
 void tensor_mul_scaler_gpu(Tensor *t, float x);
 
 void tensor_div_scaler_gpu(Tensor *t, float x);
+
+void tensor_update_at_gpu(Tensor *in, Tensor *idx, float x);
+
+Tensor *tensor_cross_entropy_gpu(Tensor *pred, Tensor *target);
+
+Tensor *tensor_softmax_gpu(Tensor *in, int32_t dim);
 
 #endif
