@@ -62,13 +62,17 @@ Tensor *tensor_empty_like(Tensor *t) {
   return _tensor_empty(t->shape, t->ndims);
 }
 
-Tensor *tensor_copy(Tensor *t) {
+Tensor *tensor_copy(Tensor *in) {
   Tensor *out;
   size_t numel;
 
-  out = tensor_empty_like(t);
-  numel = tensor_numel(t);
-  memcpy(out->data, t->data, numel * sizeof(float));
+  out = tensor_empty_like(in);
+  for (size_t i = 0; i < in->ndims; ++i) {
+    out->shape[i] = in->shape[i];
+    out->stride[i] = in->stride[i];
+  }
+  numel = tensor_numel(in);
+  memcpy(out->data, in->data, numel * sizeof(float));
 
   return out;
 }

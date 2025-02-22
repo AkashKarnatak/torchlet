@@ -140,6 +140,10 @@ Tensor *tensor_to_gpu(Tensor *in) {
   size_t numel;
 
   out = tensor_empty_like_gpu(in);
+  for (size_t i = 0; i < in->ndims; ++i) {
+    out->shape[i] = in->shape[i];
+    out->stride[i] = in->stride[i];
+  }
   numel = tensor_numel(in);
 
   cudaMemcpy(out->data, in->data, numel * sizeof(float),
@@ -155,6 +159,10 @@ Tensor *tensor_copy_gpu(Tensor *in) {
   assert(in->on_gpu);
 
   out = tensor_empty_like_gpu(in);
+  for (size_t i = 0; i < in->ndims; ++i) {
+    out->shape[i] = in->shape[i];
+    out->stride[i] = in->stride[i];
+  }
   numel = tensor_numel(in);
   cudaMemcpy(out->data, in->data, numel * sizeof(float),
              cudaMemcpyDeviceToDevice);
@@ -169,6 +177,10 @@ Tensor *tensor_to_cpu(Tensor *in) {
   assert(in->on_gpu);
 
   out = tensor_empty_like(in);
+  for (size_t i = 0; i < in->ndims; ++i) {
+    out->shape[i] = in->shape[i];
+    out->stride[i] = in->stride[i];
+  }
   numel = tensor_numel(in);
 
   cudaMemcpy(out->data, in->data, numel * sizeof(float),
