@@ -53,7 +53,7 @@ int main() {
 ### Compiling Your Code
 
 ```bash
-nvcc -arch=sm_86 -lm tensor.c tensor.cu main.cu -o main
+nvcc -O3 -Xcompiler -Wall -Xcompiler -Werror -arch=sm_86 -lm tensor.c tensor.cu main.cu -Xcompiler -fopenmp -o main.out
 ```
 
 ### Running the Example
