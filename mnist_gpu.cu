@@ -1,117 +1,11 @@
+#include "mnist_utils.h"
 #include "tensor.h"
 #include <unistd.h>
 
 typedef struct {
-  float *data;
-  float *label;
-  size_t n;
-  size_t row_size;
-  size_t batch_len;
-  size_t _batch_size;
-  size_t _offset;
-  Tensor *data_t;
-  Tensor *label_t;
-} Dataset;
-
-Dataset dataset_init(float *data, float *label, size_t n, size_t row_size,
-                     size_t batch_size) {
-  Tensor *data_t, *label_t;
-  Dataset ds;
-
-  data_t = (Tensor *)malloc(sizeof(Tensor));
-  assert(data_t != NULL);
-  label_t = (Tensor *)malloc(sizeof(Tensor));
-  assert(label_t != NULL);
-
-  data_t->ndims = 2, label_t->ndims = 1;
-  data_t->on_gpu = false, label_t->on_gpu = false;
-
-  data_t->shape = (size_t *)malloc(data_t->ndims * sizeof(size_t));
-  assert(data_t->shape != NULL);
-  label_t->shape = (size_t *)malloc(label_t->ndims * sizeof(size_t));
-  assert(label_t->shape != NULL);
-
-  data_t->stride = (size_t *)malloc(data_t->ndims * sizeof(size_t));
-  assert(data_t->stride != NULL);
-  label_t->stride = (size_t *)malloc(label_t->ndims * sizeof(size_t));
-  assert(label_t->stride != NULL);
-
-  data_t->shape[0] = row_size, data_t->shape[1] = batch_size;
-  data_t->stride[0] = 1, data_t->stride[1] = row_size;
-  label_t->shape[0] = batch_size;
-  label_t->stride[0] = 1;
-
-  data_t->data = data, label_t->data = label;
-
-  ds.data = data, ds.label = label, ds.n = n, ds.row_size = row_size,
-  ds.batch_len = batch_size, ds._batch_size = batch_size, ds._offset = 0;
-  ds.data_t = data_t, ds.label_t = label_t;
-
-  return ds;
-}
-
-void dataset_free(Dataset *ds) {
-  free(ds->data_t->shape);
-  free(ds->data_t->stride);
-  free(ds->data_t);
-  free(ds->label_t->shape);
-  free(ds->label_t->stride);
-  free(ds->label_t);
-  free(ds->data);
-  free(ds->label);
-}
-
-Dataset dataset_load(const char *data_path, const char *label_path, size_t n,
-                     size_t row_size, size_t batch_size) {
-  FILE *f;
-  float *data, *label;
-  Dataset ds;
-
-  f = fopen(data_path, "r");
-  assert(f != NULL);
-  data = (float *)malloc(n * row_size * sizeof(float));
-  assert(data != NULL);
-  assert(fread(data, sizeof(float), n * row_size, f) == n * row_size);
-  assert(fclose(f) == 0);
-
-  f = fopen(label_path, "r");
-  assert(f != NULL);
-  label = (float *)malloc(n * sizeof(float));
-  assert(label != NULL);
-  assert(fread(label, sizeof(float), n, f) == n);
-  assert(fclose(f) == 0);
-
-  ds = dataset_init(data, label, n, row_size, batch_size);
-
-  return ds;
-}
-
-bool dataset_next(Dataset *ds) {
-  if (ds->_offset >= ds->n) {
-    return false;
-  }
-
-  ds->data_t->data = ds->data + ds->_offset * ds->row_size;
-  ds->label_t->data = ds->label + ds->_offset;
-  ds->batch_len = ds->_batch_size;
-  if (ds->n - ds->_offset < ds->_batch_size) {
-    ds->data_t->shape[1] = ds->n - ds->_offset;
-    ds->label_t->shape[0] = ds->n - ds->_offset;
-    ds->batch_len = ds->n - ds->_offset;
-  }
-  ds->_offset += ds->_batch_size;
-
-  return true;
-}
-
-void dataset_reset(Dataset *ds) {
-  ds->data_t->data = ds->data;
-  ds->label_t->data = ds->label;
-  ds->data_t->shape[1] = ds->_batch_size;
-  ds->label_t->shape[0] = ds->_batch_size;
-  ds->_offset = 0;
-  ds->batch_len = ds->_batch_size;
-}
+  float loss;
+  float acc;
+} Metrics;
 
 __global__ void sgd_step_kernel(float *t_data, float *grad_data, float lr,
                                 size_t N) {
@@ -133,74 +27,17 @@ void sgd_step(Tensor *tensor, Tensor *grad, float lr) {
                                              numel);
 }
 
-void save_tensor(FILE *f, Tensor *t) {
-  size_t numel = tensor_numel(t);
-  fwrite(&t->ndims, sizeof(size_t), 1, f);
-  fwrite(&t->on_gpu, sizeof(bool), 1, f);
-  fwrite(t->shape, sizeof(size_t), t->ndims, f);
-  fwrite(t->stride, sizeof(size_t), t->ndims, f);
-  fwrite(t->data, sizeof(float), numel, f);
-}
-
-Tensor *load_tensor(FILE *f) {
-  Tensor *t;
-  size_t numel;
-
-  t = (Tensor *)malloc(sizeof(Tensor));
-  assert(t != NULL);
-  assert(fread(&t->ndims, sizeof(size_t), 1, f) == 1);
-  assert(fread(&t->on_gpu, sizeof(bool), 1, f) == 1);
-
-  t->shape = (size_t *)malloc(t->ndims * sizeof(size_t));
-  assert(t->shape != NULL);
-  assert(fread(t->shape, sizeof(size_t), t->ndims, f) == t->ndims);
-
-  t->stride = (size_t *)malloc(t->ndims * sizeof(size_t));
-  assert(t->stride != NULL);
-  assert(fread(t->stride, sizeof(size_t), t->ndims, f) == t->ndims);
-
-  numel = tensor_numel(t);
-  t->data = (float *)malloc(numel * sizeof(float));
-  assert(t->data != NULL);
-  assert(fread(t->data, sizeof(float), numel, f) == numel);
-
-  return t;
-}
-
-void save_model(const char *path, Tensor **tensors, size_t n) {
-  FILE *f;
-
-  f = fopen(path, "w");
-  assert(f != NULL);
-  for (size_t i = 0; i < n; ++i) {
-    save_tensor(f, tensors[i]);
-  }
-  assert(fclose(f) == 0);
-}
-
-void load_model(const char *path, Tensor **tensors, size_t n) {
-  FILE *f;
-
-  f = fopen(path, "r");
-  assert(f != NULL);
-  for (size_t i = 0; i < n; ++i) {
-    tensors[i] = load_tensor(f);
-  }
-  assert(fclose(f) == 0);
-}
-
-float eval(Dataset eval_ds, Tensor **params, size_t n) {
+Metrics eval(Dataset eval_ds, Tensor **params, size_t n) {
   Tensor *w1, *b1, *w2, *b2;
   Tensor *data_gpu, *label_gpu;
-  Tensor *out1, *out2, *out3, *out4, *out5, *out6, *out6_cpu;
-  float loss;
+  Tensor *out1, *out2, *out3, *out4, *out5, *out6, *out6_cpu, *out7, *out7_cpu;
+  float loss, acc;
   size_t cnt;
 
   w1 = params[0], b1 = params[1], w2 = params[2], b2 = params[3];
 
   // test
-  loss = 0.0f;
-  cnt = 0;
+  loss = 0.0f, cnt = 0, acc = 0;
   while (dataset_next(&eval_ds)) {
     data_gpu = tensor_to_gpu(eval_ds.data_t);
     label_gpu = tensor_to_gpu(eval_ds.label_t);
@@ -209,9 +46,16 @@ float eval(Dataset eval_ds, Tensor **params, size_t n) {
     out3 = tensor_relu_gpu(out2);
     out4 = tensor_matmul_gpu(out3, w2);
     out5 = tensor_matadd_gpu(out4, b2);
-    out6 = tensor_cross_entropy_gpu(out5, label_gpu);
+    out6 = tensor_argmax_at_gpu(out5, -1);
     out6_cpu = tensor_to_cpu(out6);
-    loss += tensor_mean(out6_cpu);
+    out7 = tensor_cross_entropy_gpu(out5, label_gpu);
+    out7_cpu = tensor_to_cpu(out7);
+    loss += tensor_mean(out7_cpu);
+    for (size_t i = 0; i < eval_ds.label_t->shape[0]; ++i) {
+      if (eval_ds.label_t->data[i] == out6_cpu->data[i]) {
+        ++acc;
+      }
+    }
 
     tensor_free_gpu(out1);
     tensor_free_gpu(out2);
@@ -219,25 +63,29 @@ float eval(Dataset eval_ds, Tensor **params, size_t n) {
     tensor_free_gpu(out4);
     tensor_free_gpu(out5);
     tensor_free_gpu(out6);
+    tensor_free_gpu(out6_cpu);
+    tensor_free_gpu(out7);
+    tensor_free_gpu(out7_cpu);
     ++cnt;
   }
 
-  return loss / cnt;
+  return (Metrics){loss / cnt, acc / eval_ds.n};
 }
 
-void train_gpu(Dataset train_ds, Dataset val_ds, Tensor **params, size_t n) {
+void train_gpu(Dataset train_ds, Dataset val_ds, Tensor **params,
+               size_t n_params) {
   Tensor *w1, *b1, *w2, *b2;
   Tensor *data_gpu, *label_gpu;
   Tensor *out1, *out2, *out3, *out4, *out5, *out6, *out6_cpu;
   Tensor *d_out1, *d_out2, *d_out3, *d_out4, *d_out5;
   Tensor *d_w1, *d_w2, *d_b1, *d_b2;
-  float loss, val_loss;
+  float loss;
   size_t steps;
 
   w1 = params[0], b1 = params[1], w2 = params[2], b2 = params[3];
 
   steps = 0;
-  for (size_t epoch = 1; epoch <= 1; ++epoch) {
+  for (size_t epoch = 1; epoch <= 20; ++epoch) {
     while (dataset_next(&train_ds)) {
       // forward pass
       data_gpu = tensor_to_gpu(train_ds.data_t);
@@ -279,10 +127,10 @@ void train_gpu(Dataset train_ds, Dataset val_ds, Tensor **params, size_t n) {
       tensor_transpose(data_gpu);
 
       // update
-      sgd_step(w1, d_w1, 8e-4);
-      sgd_step(w2, d_w2, 8e-4);
-      sgd_step(b1, d_b1, 8e-4);
-      sgd_step(b2, d_b2, 8e-4);
+      sgd_step(w1, d_w1, 1e-2);
+      sgd_step(w2, d_w2, 1e-2);
+      sgd_step(b1, d_b1, 1e-2);
+      sgd_step(b2, d_b2, 1e-2);
       cudaDeviceSynchronize();
 
       ++steps;
@@ -308,9 +156,10 @@ void train_gpu(Dataset train_ds, Dataset val_ds, Tensor **params, size_t n) {
 
       if (steps % 100 == 0) {
         // validate
-        val_loss = eval(val_ds, params, n);
+        Metrics m = eval(val_ds, params, n_params);
         printf("-----------------------------------\n");
-        printf("Epoch: %lu, Validation Loss: %f\n", epoch, val_loss);
+        printf("Epoch: %lu, Validation Loss: %f, Validation Accuracy: %f\n",
+               epoch, m.loss, m.acc);
         printf("-----------------------------------\n");
       }
       dataset_reset(&val_ds);
@@ -325,7 +174,6 @@ int main() {
 
   Tensor *w1, *w2, *b1, *b2;
   Tensor *w1_gpu, *w2_gpu, *b1_gpu, *b2_gpu;
-  float test_loss;
   const size_t n_params = 4;
   Tensor *params[n_params];
 
@@ -363,6 +211,7 @@ int main() {
     tensor_free(w2);
     tensor_free(b2);
 
+    // train data on GPU
     train_gpu(train_ds, val_ds, params, n_params);
 
     w1 = tensor_to_cpu(w1_gpu);
@@ -384,9 +233,9 @@ int main() {
     params[i] = tensor_to_gpu(params[i]);
     tensor_free(t);
   }
-  test_loss = eval(test_ds, params, 4);
+  Metrics m = eval(test_ds, params, n_params);
   printf("-----------------------------------\n");
-  printf("Test Loss: %f\n", test_loss);
+  printf("Test Loss: %f Test Accuracy: %f\n", m.loss, m.acc);
   printf("-----------------------------------\n");
 
   for (size_t i = 0; i < n_params; ++i) {
