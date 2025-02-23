@@ -113,10 +113,10 @@ void train(Dataset train_ds, Dataset val_ds, Tensor **params, size_t n_params) {
       tensor_transpose(train_ds.data_t);
 
       // update
-      sgd_step(w1, d_w1, 1e-2);
-      sgd_step(w2, d_w2, 1e-2);
-      sgd_step(b1, d_b1, 1e-2);
-      sgd_step(b2, d_b2, 1e-2);
+      sgd_step(w1, d_w1, 1e-1);
+      sgd_step(w2, d_w2, 1e-1);
+      sgd_step(b1, d_b1, 1e-1);
+      sgd_step(b2, d_b2, 1e-1);
 
       ++steps;
 

@@ -85,7 +85,7 @@ void train_gpu(Dataset train_ds, Dataset val_ds, Tensor **params,
   w1 = params[0], b1 = params[1], w2 = params[2], b2 = params[3];
 
   steps = 0;
-  for (size_t epoch = 1; epoch <= 20; ++epoch) {
+  for (size_t epoch = 1; epoch <= 10; ++epoch) {
     while (dataset_next(&train_ds)) {
       // forward pass
       data_gpu = tensor_to_gpu(train_ds.data_t);
@@ -127,10 +127,10 @@ void train_gpu(Dataset train_ds, Dataset val_ds, Tensor **params,
       tensor_transpose(data_gpu);
 
       // update
-      sgd_step(w1, d_w1, 1e-2);
-      sgd_step(w2, d_w2, 1e-2);
-      sgd_step(b1, d_b1, 1e-2);
-      sgd_step(b2, d_b2, 1e-2);
+      sgd_step(w1, d_w1, 1e-1);
+      sgd_step(w2, d_w2, 1e-1);
+      sgd_step(b1, d_b1, 1e-1);
+      sgd_step(b2, d_b2, 1e-1);
       cudaDeviceSynchronize();
 
       ++steps;
