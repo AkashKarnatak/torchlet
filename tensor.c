@@ -1,4 +1,5 @@
 #include "tensor.h"
+#include <omp.h>
 
 float randn() {
   float u1, u2;
@@ -180,7 +181,7 @@ Tensor *tensor_sum_at(Tensor *t, int32_t dim) {
   inner_stride = dim - 1 >= 0 ? 1 : 0;
   outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
 
-  size_t idx = 0;
+#pragma omp parallel for collapse(2)
   for (size_t i = 0; i < outer; ++i) {
     for (size_t j = 0; j < inner; ++j) {
       float sum = 0.0f;
@@ -188,7 +189,69 @@ Tensor *tensor_sum_at(Tensor *t, int32_t dim) {
         sum +=
             t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
       }
-      out->data[idx++] = sum;
+      out->data[i * inner + j] = sum;
+    }
+  }
+
+  return out;
+}
+
+Tensor *tensor_argmax_at(Tensor *t, int32_t dim) {
+  size_t outer, inner, outer_stride, inner_stride;
+  size_t out_dims;
+  Tensor *out;
+
+  assert(dim == -1 || (dim >= 0 && dim < (int32_t)t->ndims));
+
+  if (t->ndims == 1) {
+    out = _tensor_empty((size_t[]){1}, 1);
+    out->data[0] = tensor_sum(t);
+    return out;
+  }
+
+  if (dim == -1) {
+    dim = 0;
+  } else {
+    dim = t->ndims - 1 - dim;
+  }
+
+  out_dims = t->ndims - 1;
+  size_t out_shape[out_dims];
+  for (size_t i = 0; i < dim; ++i) {
+    out_shape[i] = t->shape[i];
+  }
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    out_shape[i - 1] = t->shape[i];
+  }
+  out = _tensor_empty(out_shape, out_dims);
+
+  inner = 1;
+  for (size_t i = 0; i < dim; ++i) {
+    inner *= t->shape[i];
+  }
+
+  outer = 1;
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    outer *= t->shape[i];
+  }
+
+  inner_stride = dim - 1 >= 0 ? 1 : 0;
+  outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
+
+#pragma omp parallel for collapse(2)
+  for (size_t i = 0; i < outer; ++i) {
+    for (size_t j = 0; j < inner; ++j) {
+      float maximum = -INFINITY;
+      size_t argmax = -1;
+      for (size_t k = 0; k < t->shape[dim]; ++k) {
+        if (t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride] >
+            maximum) {
+          maximum =
+              t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
+          argmax = k;
+        }
+      }
+      out->data[i * inner + j] = argmax;
     }
   }
 
@@ -250,7 +313,7 @@ Tensor *tensor_mean_at(Tensor *t, int32_t dim) {
   inner_stride = dim - 1 >= 0 ? 1 : 0;
   outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
 
-  size_t idx = 0;
+#pragma omp parallel for collapse(2)
   for (size_t i = 0; i < outer; ++i) {
     for (size_t j = 0; j < inner; ++j) {
       float sum = 0.0f;
@@ -258,7 +321,7 @@ Tensor *tensor_mean_at(Tensor *t, int32_t dim) {
         sum +=
             t->data[i * outer_stride + k * t->stride[dim] + j * inner_stride];
       }
-      out->data[idx++] = sum / t->shape[dim];
+      out->data[i * inner + j] = sum / t->shape[dim];
     }
   }
 
@@ -288,6 +351,7 @@ Tensor *tensor_relu(Tensor *t) {
   numel = tensor_numel(t);
   out = tensor_empty_like(t);
 
+#pragma omp parallel for
   for (size_t i = 0; i < numel; ++i) {
     out->data[i] = t->data[i] > 0 ? t->data[i] : 0;
   }
@@ -320,6 +384,7 @@ Tensor *tensor_softmax(Tensor *t, int32_t dim) {
 
   out = tensor_empty_like(t);
 
+#pragma omp parallel for collapse(2)
   for (size_t i = 0; i < outer; ++i) {
     for (size_t j = 0; j < inner; ++j) {
       float sum, maximum;
@@ -365,6 +430,7 @@ Tensor *tensor_cross_entropy(Tensor *pred, Tensor *target) {
 
   out = tensor_empty_like(target);
 
+#pragma omp parallel for
   for (size_t row = 0; row < pred->shape[1]; ++row) {
     float sum, maximum;
 
@@ -511,8 +577,8 @@ size_t tensor_numel(Tensor *t) {
 
 void tensor_add_scaler(Tensor *t, float x) {
   size_t numel;
-  Tensor *out;
   numel = tensor_numel(t);
+#pragma omp parallel for
   for (size_t i = 0; i < numel; ++i) {
     t->data[i] += x;
   }
@@ -520,8 +586,8 @@ void tensor_add_scaler(Tensor *t, float x) {
 
 void tensor_sub_scaler(Tensor *t, float x) {
   size_t numel;
-  Tensor *out;
   numel = tensor_numel(t);
+#pragma omp parallel for
   for (size_t i = 0; i < numel; ++i) {
     t->data[i] -= x;
   }
@@ -529,8 +595,8 @@ void tensor_sub_scaler(Tensor *t, float x) {
 
 void tensor_mul_scaler(Tensor *t, float x) {
   size_t numel;
-  Tensor *out;
   numel = tensor_numel(t);
+#pragma omp parallel for
   for (size_t i = 0; i < numel; ++i) {
     t->data[i] *= x;
   }
@@ -538,8 +604,8 @@ void tensor_mul_scaler(Tensor *t, float x) {
 
 void tensor_div_scaler(Tensor *t, float x) {
   size_t numel;
-  Tensor *out;
   numel = tensor_numel(t);
+#pragma omp parallel for
   for (size_t i = 0; i < numel; ++i) {
     t->data[i] /= x;
   }
@@ -559,6 +625,7 @@ Tensor *tensor_matadd(Tensor *a, Tensor *b) {
 
     c = tensor_empty_like(a);
 
+#pragma omp parallel for
     for (size_t i = 0; i < batch; ++i) {
       for (size_t j = 0; j < a->shape[0]; ++j) {
         c->data[i * c->stride[1] + j * c->stride[0]] =
@@ -577,6 +644,7 @@ Tensor *tensor_matadd(Tensor *a, Tensor *b) {
 
   c = tensor_empty_like(a);
 
+#pragma omp parallel for
   for (size_t i = 0; i < numel; ++i) {
     c->data[i] = a->data[i] + b->data[i];
   }
@@ -613,6 +681,7 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b) {
   size_t b_stride_2 = ndims > 2 ? b->stride[2] : 1;
   size_t c_stride_2 = ndims > 2 ? c->stride[2] : 1;
 
+#pragma omp parallel for collapse(3)
   for (size_t batch = 0; batch < batch_size; ++batch) {
     for (size_t row = 0; row < c->shape[1]; ++row) {
       for (size_t col = 0; col < c->shape[0]; ++col) {
@@ -650,4 +719,60 @@ bool tensor_allclose(Tensor *a, Tensor *b, float eps) {
   }
 
   return true;
+}
+
+void save_tensor(FILE *f, Tensor *t) {
+  size_t numel = tensor_numel(t);
+  fwrite(&t->ndims, sizeof(size_t), 1, f);
+  fwrite(&t->on_gpu, sizeof(bool), 1, f);
+  fwrite(t->shape, sizeof(size_t), t->ndims, f);
+  fwrite(t->stride, sizeof(size_t), t->ndims, f);
+  fwrite(t->data, sizeof(float), numel, f);
+}
+
+Tensor *load_tensor(FILE *f) {
+  Tensor *t;
+  size_t numel;
+
+  t = (Tensor *)malloc(sizeof(Tensor));
+  assert(t != NULL);
+  assert(fread(&t->ndims, sizeof(size_t), 1, f) == 1);
+  assert(fread(&t->on_gpu, sizeof(bool), 1, f) == 1);
+
+  t->shape = (size_t *)malloc(t->ndims * sizeof(size_t));
+  assert(t->shape != NULL);
+  assert(fread(t->shape, sizeof(size_t), t->ndims, f) == t->ndims);
+
+  t->stride = (size_t *)malloc(t->ndims * sizeof(size_t));
+  assert(t->stride != NULL);
+  assert(fread(t->stride, sizeof(size_t), t->ndims, f) == t->ndims);
+
+  numel = tensor_numel(t);
+  t->data = (float *)malloc(numel * sizeof(float));
+  assert(t->data != NULL);
+  assert(fread(t->data, sizeof(float), numel, f) == numel);
+
+  return t;
+}
+
+void save_model(const char *path, Tensor **tensors, size_t n) {
+  FILE *f;
+
+  f = fopen(path, "w");
+  assert(f != NULL);
+  for (size_t i = 0; i < n; ++i) {
+    save_tensor(f, tensors[i]);
+  }
+  assert(fclose(f) == 0);
+}
+
+void load_model(const char *path, Tensor **tensors, size_t n) {
+  FILE *f;
+
+  f = fopen(path, "r");
+  assert(f != NULL);
+  for (size_t i = 0; i < n; ++i) {
+    tensors[i] = load_tensor(f);
+  }
+  assert(fclose(f) == 0);
 }

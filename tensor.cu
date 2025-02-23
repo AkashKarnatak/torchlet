@@ -97,11 +97,11 @@ __global__ void update_at_kernel(float *in_data, float *idx_data, float x,
   in_data[i * in_stride_1 + (size_t)idx_data[i] * in_stride_0] += x;
 }
 
-__global__ void block_reduction_sum_kernel(float *in_data, float *out_data,
-                                           size_t M, size_t inner,
-                                           size_t dim_stride,
-                                           size_t outer_stride,
-                                           size_t inner_stride) {
+__global__ void block_reduction_sum_at_kernel(float *in_data, float *out_data,
+                                              size_t M, size_t inner,
+                                              size_t dim_stride,
+                                              size_t outer_stride,
+                                              size_t inner_stride) {
   size_t i = blockIdx.x / inner;
   size_t j = blockIdx.x % inner;
 
@@ -129,6 +129,48 @@ __global__ void block_reduction_sum_kernel(float *in_data, float *out_data,
   }
 
   out_data[blockIdx.x] = mem_s[0];
+}
+
+__global__ void
+block_reduction_argmax_at_kernel(float *in_data, float *out_data, size_t M,
+                                 size_t inner, size_t dim_stride,
+                                 size_t outer_stride, size_t inner_stride) {
+  size_t i = blockIdx.x / inner;
+  size_t j = blockIdx.x % inner;
+
+  float local_max, local_argmax;
+  __shared__ float max_s[BLOCK_SIZE];
+  __shared__ float argmax_s[BLOCK_SIZE];
+
+  local_max = -INFINITY, local_argmax = threadIdx.x;
+  for (size_t block = 0; block < cdiv(M, BLOCK_SIZE); ++block) {
+    if (block * BLOCK_SIZE + threadIdx.x >= M)
+      continue;
+    float curr = in_data[i * outer_stride +
+                         (block * BLOCK_SIZE + threadIdx.x) * dim_stride +
+                         j * inner_stride];
+    if (curr > local_max) {
+      local_max = curr;
+      local_argmax = block * BLOCK_SIZE + threadIdx.x;
+    }
+  }
+
+  max_s[threadIdx.x] = local_max;
+  argmax_s[threadIdx.x] = local_argmax;
+
+  __syncthreads();
+
+  for (size_t numThreads = BLOCK_SIZE / 2; numThreads > 0; numThreads /= 2) {
+    if (threadIdx.x < numThreads) {
+      if (max_s[threadIdx.x + numThreads] > max_s[threadIdx.x]) {
+        max_s[threadIdx.x] = max_s[threadIdx.x + numThreads];
+        argmax_s[threadIdx.x] = argmax_s[threadIdx.x + numThreads];
+      }
+    }
+    __syncthreads();
+  }
+
+  out_data[blockIdx.x] = argmax_s[0];
 }
 
 __global__ void cross_entropy_kernel(float *pred_data, float *target_data,
@@ -253,7 +295,7 @@ Tensor *_tensor_empty_gpu(size_t *shape, size_t ndims) {
 
 Tensor *tensor_empty_gpu(size_t *shape, size_t ndims) {
   size_t shape_r[ndims];
-  for (int32_t i = 0; i < (ndims + 1) / 2; ++i) {
+  for (size_t i = 0; i < (ndims + 1) / 2; ++i) {
     shape_r[i] = shape[ndims - 1 - i];
     shape_r[ndims - 1 - i] = shape[i];
   }
@@ -374,7 +416,7 @@ Tensor *tensor_sum_at_gpu(Tensor *t, int32_t dim) {
 
   out_dims = t->ndims - 1;
   size_t out_shape[out_dims];
-  for (size_t i = 0; i < dim; ++i) {
+  for (size_t i = 0; i < (size_t)dim; ++i) {
     out_shape[i] = t->shape[i];
   }
   for (size_t i = dim + 1; i < t->ndims; ++i) {
@@ -383,7 +425,7 @@ Tensor *tensor_sum_at_gpu(Tensor *t, int32_t dim) {
   out = _tensor_empty_gpu(out_shape, out_dims);
 
   inner = 1;
-  for (size_t i = 0; i < dim; ++i) {
+  for (size_t i = 0; i < (size_t)dim; ++i) {
     inner *= t->shape[i];
   }
 
@@ -393,11 +435,59 @@ Tensor *tensor_sum_at_gpu(Tensor *t, int32_t dim) {
   }
 
   inner_stride = dim - 1 >= 0 ? 1 : 0;
-  outer_stride = dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
+  outer_stride = (size_t)dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
 
   size_t numThreads = 1024;
   size_t numBlocks = inner * outer;
-  block_reduction_sum_kernel<<<numBlocks, numThreads>>>(
+  block_reduction_sum_at_kernel<<<numBlocks, numThreads>>>(
+      t->data, out->data, t->shape[dim], inner, t->stride[dim], outer_stride,
+      inner_stride);
+  cudaDeviceSynchronize();
+
+  return out;
+}
+
+Tensor *tensor_argmax_at_gpu(Tensor *t, int32_t dim) {
+  size_t outer, inner, outer_stride, inner_stride;
+  size_t out_dims;
+  Tensor *out;
+
+  assert(dim == -1 || (dim >= 0 && dim < (int32_t)t->ndims));
+
+  assert(t->ndims > 1);
+
+  if (dim == -1) {
+    dim = 0;
+  } else {
+    dim = t->ndims - 1 - dim;
+  }
+
+  out_dims = t->ndims - 1;
+  size_t out_shape[out_dims];
+  for (size_t i = 0; i < (size_t)dim; ++i) {
+    out_shape[i] = t->shape[i];
+  }
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    out_shape[i - 1] = t->shape[i];
+  }
+  out = _tensor_empty_gpu(out_shape, out_dims);
+
+  inner = 1;
+  for (size_t i = 0; i < (size_t)dim; ++i) {
+    inner *= t->shape[i];
+  }
+
+  outer = 1;
+  for (size_t i = dim + 1; i < t->ndims; ++i) {
+    outer *= t->shape[i];
+  }
+
+  inner_stride = dim - 1 >= 0 ? 1 : 0;
+  outer_stride = (size_t)dim + 1 < t->ndims ? t->stride[dim + 1] : 0;
+
+  size_t numThreads = 1024;
+  size_t numBlocks = inner * outer;
+  block_reduction_argmax_at_kernel<<<numBlocks, numThreads>>>(
       t->data, out->data, t->shape[dim], inner, t->stride[dim], outer_stride,
       inner_stride);
   cudaDeviceSynchronize();
@@ -572,17 +662,17 @@ Tensor *tensor_softmax_gpu(Tensor *in, int32_t dim) {
   }
 
   inner = 1;
-  for (size_t i = 0; i < dim; ++i) {
+  for (size_t i = 0; i < (size_t)dim; ++i) {
     inner *= in->shape[i];
   }
 
   outer = 1;
-  for (size_t i = dim + 1; i < in->ndims; ++i) {
+  for (size_t i = (size_t)dim + 1; i < in->ndims; ++i) {
     outer *= in->shape[i];
   }
 
   inner_stride = dim - 1 >= 0 ? 1 : 0;
-  outer_stride = dim + 1 < in->ndims ? in->stride[dim + 1] : 0;
+  outer_stride = (size_t)dim + 1 < in->ndims ? in->stride[dim + 1] : 0;
 
   out = tensor_empty_like_gpu(in);
 

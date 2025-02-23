@@ -40,6 +40,8 @@ float tensor_sum(Tensor *t);
 
 Tensor *tensor_sum_at(Tensor *t, int32_t dim);
 
+Tensor *tensor_argmax_at(Tensor *t, int32_t dim);
+
 float tensor_mean(Tensor *t);
 
 Tensor *tensor_mean_at(Tensor *t, int32_t dim);
@@ -78,6 +80,14 @@ Tensor *tensor_matmul(Tensor *a, Tensor *b);
 
 bool tensor_allclose(Tensor *a, Tensor *b, float eps);
 
+void save_tensor(FILE *f, Tensor *t);
+
+Tensor *load_tensor(FILE *f);
+
+void save_model(const char *path, Tensor **tensors, size_t n);
+
+void load_model(const char *path, Tensor **tensors, size_t n);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif
@@ -95,6 +105,8 @@ Tensor *tensor_relu_gpu(Tensor *in);
 void tensor_relu_backward_gpu(Tensor *a, Tensor *b);
 
 Tensor *tensor_sum_at_gpu(Tensor *t, int32_t dim);
+
+Tensor *tensor_argmax_at_gpu(Tensor *t, int32_t dim);
 
 Tensor *tensor_matadd_gpu(Tensor *a, Tensor *b);
 
