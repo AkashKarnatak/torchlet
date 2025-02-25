@@ -5,6 +5,12 @@ A lightweight torch like tensor computation library implemented from scratch in 
 I created this to better understand the inner workings of tensor libraries like PyTorch,
 making it an excellent resource for learning how these libraries work under the hood.
 
+## Demo
+
+What it feels like to train a neural network on GPU as compared to CPU.
+
+https://github.com/user-attachments/assets/adbf74e6-6f98-4fdf-a6c8-d1ab59a47aed
+
 ## Features
 
 - Basic tensor operations implemented in C and CUDA
@@ -49,6 +55,9 @@ int main() {
     return 0;
 }
 ```
+
+Check out `./mnist_cpu.c` and `./mnist_gpu.cu` to understand how to train a neural network using
+this library.
 
 ### Compiling Your Code
 
